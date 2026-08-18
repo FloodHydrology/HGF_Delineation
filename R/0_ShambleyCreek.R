@@ -5,9 +5,9 @@
 # Purpose: Expore longitudinal profile of Shambley creek
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Section 0: Setup worksapce
-# Section 1: Delineate watershed
-# Section 2: Delineate stream network
+# Section 1: Setup worksapce
+# Section 2: Delineate watershed
+# Section 3: Delineate stream network
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # 1.0 Setup workspace ----------------------------------------------------------
@@ -108,7 +108,7 @@ streams <- file.path(wbt_wd, "streams.tif")
 wbt_extract_streams(
   flow_accum = d8_accum,
   output     = streams,
-  threshold  = 5000,
+  threshold  = 2000,
   wd         = wbt_wd
 )
 
@@ -155,7 +155,57 @@ mapview(ws_poly,        col.regions = "steelblue", alpha.regions = 0.3,
   mapview(outlet_snap_sf, col.regions = "yellow", cex = 6, layer.name = "Outlet (snapped)")
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# 2.0 Delineate stream network -------------------------------------------------
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# The D8 pointer, flow accumulation, and stream raster already exist from
+# Section 1 (built for pour-point snapping). Here we clip the stream network to
+# the delineated watershed, vectorize it, and tag Strahler stream order.
 
+# 2.1 Clip stream raster to watershed ------------------------------------------
+# Mask the watershed-wide stream raster to just our basin so we don't carry
+# neighboring drainages into the network.
+streams_clip <- file.path(wbt_wd, "streams_clip.tif")
+wbt_multiply(
+  input1 = streams,
+  input2 = watershed,   # watershed raster = 1 inside basin, NA outside
+  output = streams_clip,
+  wd     = wbt_wd
+)
+
+# 2.2 Strahler stream order ----------------------------------------------------
+strahler <- file.path(wbt_wd, "strahler.tif")
+wbt_strahler_stream_order(
+  d8_pntr = d8_pntr,
+  streams = streams_clip,
+  output  = strahler,
+  wd      = wbt_wd
+)
+
+# 2.3 Convert stream raster to vector ------------------------------------------
+# Vectorize the ordered network. wbt writes the Strahler value into the
+# STRM_VAL / FID attributes of the resulting lines.
+streams_vec <- file.path(wbt_wd, "streams_vec.shp")
+wbt_raster_streams_to_vector(
+  streams = strahler,
+  d8_pntr = d8_pntr,
+  output  = streams_vec,
+  wd      = wbt_wd
+)
+
+# 2.4 Read network back in -----------------------------------------------------
+# wbt_raster_streams_to_vector doesn't write a .prj, so set the CRS to match
+# the DEM (UTM 16N) explicitly.
+streams_sf <- st_read(streams_vec, quiet = TRUE) %>%
+  st_set_crs(26916)
+
+# 2.5 Interactive visualization ------------------------------------------------
+mapview(ws_poly,     col.regions = "steelblue", alpha.regions = 0.3,
+        layer.name = "Watershed") +
+  mapview(streams_sf, zcol = "STRM_VAL", legend = TRUE,
+          layer.name = "Stream order") +
+  mapview(outlet_snap_sf, col.regions = "yellow", cex = 6,
+          layer.name = "Outlet (snapped)")
 
 
 
