@@ -228,7 +228,6 @@ p_slope <- profile %>%
   scale_fill_manual(values = hgf_cols, name = "Field HGF") +
   geom_point(aes(y = slope_pt), size = 1.2, alpha = 0.40, col = "grey30") +
   geom_line(lwd = 0.75, col = "black") +
-  coord_cartesian(xlim = c(ak_window$d_min, ak_window$d_max)) +
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.text  = element_text(size = 10)) +
@@ -238,7 +237,12 @@ p_slope <- profile %>%
   ylab("Slope [m/m]")
 
 # Stack, shared legend
-fig <- (p_elev / p_slope) + plot_layout(guides = "collect")
+fig <- (p_elev / p_slope) +
+  plot_layout(guides = "collect") +
+  plot_annotation(
+    title = "Central Watershed",
+    theme = theme(plot.title = element_text(size = 16, hjust = 0.5))
+  )
 fig
 
 # 4.6 Export -------------------------------------------------------------------
